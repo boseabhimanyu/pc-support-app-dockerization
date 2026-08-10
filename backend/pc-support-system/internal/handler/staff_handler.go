@@ -1,0 +1,188 @@
+package handlers
+
+import (
+	"net/http"
+	"strings"
+
+	"github.com/boseabhimanyu/pc-support-app/backend/pc-support-system/internal/dto"
+	"github.com/boseabhimanyu/pc-support-app/backend/pc-support-system/internal/models"
+	"github.com/gin-gonic/gin"
+)
+
+func (h *UserHandler) CreateStaff(c *gin.Context) {
+
+	var req dto.CreateStaffRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	createdBy := c.GetString("userID")
+
+	staff, err := h.userService.CreateStaff(
+		c.Request.Context(),
+		createdBy,
+		req,
+	)
+
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusCreated, staff)
+}
+
+func (h *UserHandler) SetStaffPassword(c *gin.Context) {
+
+	staffID := c.Param("staffId")
+	updatedBy := c.GetString("userID")
+
+	var req dto.SetStaffPasswordRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	err := h.userService.SetStaffPassword(
+		c.Request.Context(),
+		staffID,
+		updatedBy,
+		req,
+	)
+
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "staff password set successfully",
+	})
+}
+
+func (h *UserHandler) SearchStaff(c *gin.Context) {
+
+	query := c.Query("q")
+
+	staff, err := h.userService.SearchStaff(
+		c.Request.Context(),
+		query,
+	)
+
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, staff)
+}
+
+func (h *UserHandler) UpdateStaff(c *gin.Context) {
+
+	staffID := c.Param("staffId")
+	updatedBy := c.GetString("userID")
+
+	var req dto.UpdateStaffRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	staff, err := h.userService.UpdateStaff(
+		c.Request.Context(),
+		staffID,
+		updatedBy,
+		req,
+	)
+
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, staff)
+}
+
+func (h *UserHandler) GetStaffByID(c *gin.Context) {
+
+	staffID := c.Param("staffId")
+	requesterID := c.GetString("userID")
+
+	staff, err := h.userService.GetStaffByID(
+		c.Request.Context(),
+		staffID,
+		requesterID,
+	)
+
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, staff)
+}
+
+func (h *UserHandler) FindStaff(c *gin.Context) {
+
+	search := c.Query("q")
+	rolesParam := c.Query("roles")
+
+	var roles []models.Role
+
+	if rolesParam != "" {
+		for _, role := range strings.Split(rolesParam, ",") {
+
+			role = strings.TrimSpace(role)
+
+			if role == "" {
+				continue
+			}
+
+			userRole := models.Role(role)
+
+			if !userRole.IsValid() {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"error": "invalid staff role: " + role,
+				})
+				return
+			}
+
+			roles = append(roles, userRole)
+		}
+	}
+
+	staff, err := h.userService.FindStaff(
+		c.Request.Context(),
+		search,
+		roles,
+		c.GetString("userID"),
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, staff)
+}

@@ -1,0 +1,706 @@
+import { useEffect, useState } from "react";
+import {
+    Alert,
+    Button,
+    Card,
+    Col,
+    Row,
+    Spinner,
+    Table,
+} from "react-bootstrap";
+import { useNavigate, useSearchParams } from "react-router";
+
+import { useAuth } from "../auth/hooks/useAuth";
+
+import {
+    fetchAssignedJobs,
+    fetchInProgressJobs,
+    fetchOpenJobs,
+    fetchResumedJobs,
+    fetchWaitingCustomerJobs,
+    searchJobs,
+} from "../jobs/services/jobApi";
+
+import type {
+    Job,
+    JobQueueResponse,
+} from "./jobTypes";
+
+type QueueType =
+    | "open"
+    | "assigned"
+    | "in-progress"
+    | "waiting-customer"
+    | "resumed";
+
+type Queue = {
+    key: QueueType;
+    title: string;
+};
+
+
+const QUEUES: Queue[] = [
+    {
+        key: "open",
+        title: "Open",
+    },
+    {
+        key: "assigned",
+        title: "Assigned",
+    },
+    {
+        key: "in-progress",
+        title: "In Progress",
+    },
+    {
+        key: "waiting-customer",
+        title: "Waiting Customer",
+    },
+    {
+        key: "resumed",
+        title: "Resumed",
+    },
+];
+
+function formatStatus(status: string) {
+    const statusLabels: Record<string, string> = {
+        created: "Created",
+        assigned: "Assigned",
+        in_progress: "In progress",
+        waiting_customer: "Waiting for customer",
+        resumed: "Resumed",
+        closed: "Closed",
+    };
+
+    return statusLabels[status] ?? status;
+}
+function fullName(person?: {
+    firstName: string;
+    lastName: string;
+} | null) {
+    if (!person) {
+        return "--";
+    }
+
+    return [
+        person.firstName,
+        person.lastName,
+    ]
+        .filter(Boolean)
+        .join(" ");
+}
+function isAssignedQueue(queue: QueueType) {
+    return (
+        queue === "assigned" ||
+        queue === "in-progress" ||
+        queue === "waiting-customer" ||
+        queue === "resumed"
+    );
+}
+
+export default function JobManagement() {
+    const { user } = useAuth();
+    const navigate = useNavigate();
+    const [searchParams, setSearchParams] =
+    useSearchParams();
+
+    const [searchJobNumber, setSearchJobNumber] =
+        useState(searchParams.get("search") ?? "");
+
+    const [searchedJobs, setSearchedJobs] =
+        useState<Job[]>([]);
+
+    const [searchLoading, setSearchLoading] =
+        useState(false);
+
+    const [searchError, setSearchError] =
+        useState("");
+
+           useEffect(() => {
+    const savedSearch =
+        searchParams.get("search");
+
+    if (savedSearch === null || savedSearch.trim() === "") {
+        return;
+    }
+
+    const query = savedSearch.trim();
+
+    setSearchJobNumber(query);
+
+    async function restoreSearch() {
+        try {
+            setSearchLoading(true);
+            setSearchError("");
+
+            const response =
+                await searchJobs(query);
+
+            setSearchedJobs(
+                response.jobs ?? [],
+            );
+        } catch (err: any) {
+            console.error(
+                "Search restore error:",
+                err.response?.data,
+            );
+
+            setSearchError(
+                err.response?.data?.error ??
+                    err.response?.data?.message ??
+                    "Unable to restore search.",
+            );
+
+            setSearchedJobs([]);
+        } finally {
+            setSearchLoading(false);
+        }
+    }
+
+    restoreSearch();
+}, []); 
+
+    const canManageQueues =
+        user?.role === "head_technician" ||
+        user?.role === "admin" ||
+        user?.role === "super_admin";
+
+    const [counts, setCounts] = useState<
+        Record<QueueType, number>
+    >({
+        open: 0,
+        assigned: 0,
+        "in-progress": 0,
+        "waiting-customer": 0,
+        resumed: 0,
+    });
+
+    const [selectedQueue, setSelectedQueue] =
+        useState<QueueType | null>(null);
+
+    const [jobs, setJobs] = useState<Job[]>([]);
+
+    const [loadingCounts, setLoadingCounts] =
+        useState(false);
+
+    const [loadingJobs, setLoadingJobs] =
+        useState(false);
+
+    const [error, setError] = useState("");
+
+    async function handleSearchJob() {
+    const value = searchJobNumber.trim();
+
+    if (!value) {
+        setSearchError("Please enter a job number.");
+        setSearchedJobs([]);
+        setSearchParams({});
+        return;
+    }
+
+    try {
+        setSearchLoading(true);
+        setSearchError("");
+        setSearchedJobs([]);
+
+        setSearchParams({
+            search: value,
+        });
+
+        const response = await searchJobs(value);
+
+        setSearchedJobs(response.jobs ?? []);
+    } catch (err: any) {
+        console.error(
+            "Job search error:",
+            err.response?.data,
+        );
+
+        setSearchError(
+            err.response?.data?.error ??
+                err.response?.data?.message ??
+                "Unable to search jobs.",
+        );
+    } finally {
+        setSearchLoading(false);
+    }
+}
+
+
+    /*
+     * Get the five queue responses.
+     *
+     * The backend uses:
+     * - openJobsCount for Open
+     * - assignedJobsCount for Assigned
+     * - jobsCount for the other queues
+     */
+    async function loadQueueCounts() {
+        try {
+            setLoadingCounts(true);
+            setError("");
+
+            const [
+                openResponse,
+                assignedResponse,
+                inProgressResponse,
+                waitingCustomerResponse,
+                resumedResponse,
+            ] = await Promise.all([
+                fetchOpenJobs(),
+                fetchAssignedJobs(),
+                fetchInProgressJobs(),
+                fetchWaitingCustomerJobs(),
+                fetchResumedJobs(),
+            ]);
+
+            setCounts({
+                open:
+                    openResponse.openJobsCount ??
+                    openResponse.jobsCount ??
+                    openResponse.jobs.length,
+
+                assigned:
+                    assignedResponse.assignedJobsCount ??
+                    assignedResponse.jobsCount ??
+                    assignedResponse.jobs.length,
+
+                "in-progress":
+                    inProgressResponse.jobsCount ??
+                    inProgressResponse.jobs.length,
+
+                "waiting-customer":
+                    waitingCustomerResponse.jobsCount ??
+                    waitingCustomerResponse.jobs.length,
+
+                resumed:
+                    resumedResponse.jobsCount ??
+                    resumedResponse.jobs.length,
+            });
+        } catch (err: any) {
+            console.error(
+                "Job queue count error:",
+                err.response?.data,
+            );
+
+            setError(
+                err.response?.data?.error ??
+                    err.response?.data?.message ??
+                    "Unable to load job queues.",
+            );
+        } finally {
+            setLoadingCounts(false);
+        }
+    }
+
+useEffect(() => {
+    if (!canManageQueues) {
+        return;
+    }
+
+    loadQueueCounts();
+}, [canManageQueues]);
+
+    async function loadQueue(
+        queue: QueueType,
+    ) {
+        try {
+            setSelectedQueue(queue);
+            setLoadingJobs(true);
+            setError("");
+            setJobs([]);
+
+            let response: JobQueueResponse;
+
+            switch (queue) {
+                case "open":
+                    response =
+                        await fetchOpenJobs();
+                    break;
+
+                case "assigned":
+                    response =
+                        await fetchAssignedJobs();
+                    break;
+
+                case "in-progress":
+                    response =
+                        await fetchInProgressJobs();
+                    break;
+
+                case "waiting-customer":
+                    response =
+                        await fetchWaitingCustomerJobs();
+                    break;
+
+                case "resumed":
+                    response =
+                        await fetchResumedJobs();
+                    break;
+            }
+
+            setJobs(response.jobs);
+        } catch (err: any) {
+            console.error(
+                "Job queue error:",
+                err.response?.data,
+            );
+
+            setError(
+                err.response?.data?.error ??
+                    err.response?.data?.message ??
+                    "Unable to load jobs.",
+            );
+        } finally {
+            setLoadingJobs(false);
+        }
+    }
+
+    function customerName(job: Job) {
+        return [
+            job.customer.firstName,
+            job.customer.lastName,
+        ]
+            .filter(Boolean)
+            .join(" ");
+    }
+
+    function deviceName(job: Job) {
+        return [
+            job.device.brand,
+            job.device.model,
+        ]
+            .filter(Boolean)
+            .join(" ");
+    }
+
+
+    return (
+        <div>
+            <h2 className="mb-4">
+                Job Management
+            </h2>
+
+            {error && (
+                <Alert variant="danger">
+                    {error}
+                </Alert>
+            )}
+            <Card className="mb-4">
+    <Card.Body>
+        <Card.Title>
+            Search Job
+        </Card.Title>
+
+        <div className="d-flex gap-2">
+            <input
+                type="text"
+                className="form-control"
+                placeholder="Enter job number"
+                value={searchJobNumber}
+                disabled={searchLoading}
+                onChange={(event) =>
+                    setSearchJobNumber(
+                        event.target.value,
+                    )
+                }
+                onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                        handleSearchJob();
+                    }
+                }}
+            />
+
+            <Button
+                variant="primary"
+                disabled={searchLoading}
+                onClick={handleSearchJob}
+            >
+                {searchLoading ? (
+                    <Spinner
+                        animation="border"
+                        size="sm"
+                    />
+                ) : (
+                    "Search"
+                )}
+            </Button>
+        </div>
+
+        {searchError && (
+            <Alert
+                variant="danger"
+                className="mt-3 mb-0"
+            >
+                {searchError}
+            </Alert>
+        )}
+
+{searchedJobs.length > 0 && (
+    <div className="mt-3">
+        {searchedJobs.map((job) => (
+            <Card
+                key={job.id}
+                className="mb-2"
+            >
+                <Card.Body>
+                    <div className="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div className="fw-semibold">
+                                {job.jobNumber}
+                            </div>
+
+                            <div className="text-muted">
+                                {fullName(job.customer)}
+                            </div>
+
+                            <div className="small text-muted">
+                                {formatStatus(job.status)}
+                            </div>
+                        </div>
+
+                        <Button
+                            size="sm"
+                            variant="outline-primary"
+                            onClick={() =>
+                                navigate(job.jobNumber)
+                            }
+                        >
+                            View Job
+                        </Button>
+                    </div>
+                </Card.Body>
+            </Card>
+        ))}
+    </div>
+)}
+    </Card.Body>
+</Card>
+            {canManageQueues && (
+            <Row className="g-3 mb-4">
+                {QUEUES.map((queue) => (
+                    <Col
+                        key={queue.key}
+                        xs={12}
+                        sm={6}
+                        lg={4}
+                        xl={2}
+                    >
+                        <Card
+                            className={`h-100 ${
+                                selectedQueue ===
+                                queue.key
+                                    ? "border-primary"
+                                    : ""
+                            }`}
+                        >
+                            <Card.Body className="d-flex flex-column">
+                                <Card.Title>
+                                    {queue.title}
+                                </Card.Title>
+
+                                <div
+                                    className="display-5 fw-bold mb-3"
+                                >
+                                    {loadingCounts ? (
+                                        <Spinner
+                                            animation="border"
+                                            size="sm"
+                                        />
+                                    ) : (
+                                        counts[
+                                            queue.key
+                                        ]
+                                    )}
+                                </div>
+
+                                <Button
+                                    variant={
+                                        selectedQueue ===
+                                        queue.key
+                                            ? "primary"
+                                            : "outline-primary"
+                                    }
+                                    className="mt-auto"
+                                    onClick={() =>
+                                        loadQueue(
+                                            queue.key,
+                                        )
+                                    }
+                                    disabled={
+                                        loadingJobs
+                                    }
+                                >
+                                    View Jobs
+                                </Button>
+                            </Card.Body>
+                        </Card>
+                    </Col>
+                ))}
+            </Row>
+                )}
+            {canManageQueues && selectedQueue && (
+                <Card>
+                    <Card.Body>
+                        <div className="d-flex justify-content-between align-items-center mb-3">
+    <Card.Title className="mb-0">
+        {
+            QUEUES.find(
+                (queue) =>
+                    queue.key === selectedQueue,
+            )?.title
+        }{" "}
+        Jobs
+    </Card.Title>
+
+    <div className="d-flex gap-2">
+        <Button
+            variant="outline-secondary"
+            size="sm"
+            onClick={() =>
+                loadQueue(selectedQueue)
+            }
+            disabled={loadingJobs}
+        >
+            Refresh
+        </Button>
+
+        <Button
+            variant="outline-secondary"
+            size="sm"
+            onClick={() => {
+                setSelectedQueue(null);
+                setJobs([]);
+            }}
+        >
+            Close
+        </Button>
+    </div>
+</div>
+
+                        {loadingJobs ? (
+                            <div className="text-center p-4">
+                                <Spinner />
+                            </div>
+                        ) : jobs.length ===
+                          0 ? (
+                            <Alert variant="info">
+                                No jobs in this
+                                queue.
+                            </Alert>
+                        ) : (
+                            <div className="table-responsive">
+                                <Table
+                                    bordered
+                                    hover
+                                    responsive
+                                    className="align-middle"
+                                    style={{ tableLayout: "fixed", width: "100%" }}
+                                >
+                                    <thead>
+                                        <tr>
+                                            <th>
+                                                Job Number
+                                            </th>
+                                            <th>
+                                            Customer
+                                        </th>
+                                            <th>
+                                                Device
+                                            </th>
+                                            <th>
+                                                Problem
+                                            </th>
+                                            {isAssignedQueue(selectedQueue) && (
+                                            <th>
+                                                Assigned To
+                                            </th>
+                                                )}
+                                            <th>
+                                                Status
+                                            </th>
+                                            <th>
+                                                Created
+                                            </th>
+                                            <th>
+                                            </th>
+                                        </tr>
+                                    </thead>
+
+                                    <tbody>
+                                        {jobs.map(
+                                            (
+                                                job,
+                                            ) => (
+                                                <tr
+                                                    key={
+                                                        job.id
+                                                    }
+                                                >
+                                                    <td>
+                                                        {
+                                                            job.jobNumber
+                                                        }
+                                                    </td>
+
+                                                        <td>
+                                            {customerName(job)}
+                                                         </td>
+
+
+
+                                                    <td>
+                                                        {deviceName(job) || job.device.type}
+                                                    </td>
+
+                                                    <td>
+                                                        {
+                                                            job.problemDescription
+                                                        }
+                                                    </td>
+                                                            {isAssignedQueue(selectedQueue) && (
+                                                    <td>
+                                                        {job.assignedTo
+                                                            ? `${job.assignedTo.firstName} ${job.assignedTo.lastName}`
+                                                            : "--"}
+                                                    </td>
+                                                            )}
+                                                    <td>
+                                                        {
+                                                            formatStatus(job.status)
+                                                        }
+                                                    </td>
+
+                                                    <td>
+                                                        {new Date(
+                                                            job.createdAt,
+                                                        ).toLocaleString()}
+                                                    </td>
+
+                                                    <td>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline-primary"
+                                                            onClick={() =>
+                                                                navigate(
+                                                                    `${job.jobNumber}`,
+                                                                )
+                                                            }
+                                                        >
+                                                            View
+                                                        </Button>
+                                                    </td>
+                                                </tr>
+                                            ),
+                                        )}
+                                    </tbody>
+                                </Table>
+                            </div>
+                        )}
+                    </Card.Body>
+                </Card>
+            )}
+        </div>
+    );
+}
+
