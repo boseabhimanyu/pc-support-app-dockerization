@@ -16,11 +16,11 @@ Features
 - Authentication
 - Role Based Access
 
-##.env file
+## .env file
 
 ```
 
-MONGO_URI=<mongouri>
+MONGO_URI=<mongouri>(for docker - mongodb://host.docker.internal:27017)
 MONGO_DB_NAME=pc-<dbname>
 PORT=<port for webserver>
 JWT_SECRET=<secret-phrase>
