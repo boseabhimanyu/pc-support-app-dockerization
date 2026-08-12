@@ -29,4 +29,4 @@ services:
 
 volumes:
   pc-support-mongo-data:
-    external: true
+    external: false
