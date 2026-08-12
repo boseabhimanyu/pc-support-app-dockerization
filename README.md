@@ -20,7 +20,9 @@ Features
 
 ```
 
-MONGO_URI=<mongouri>(for docker - mongodb://host.docker.internal:27017)
+MONGO_URI=<mongouri>(for docker using host database - mongodb://host.docker.internal:27017 or image mongo db mongodb://<mongodb-image-name>:27017)
+
+
 MONGO_DB_NAME=pc-<dbname>
 PORT=<port for webserver>
 JWT_SECRET=<secret-phrase>

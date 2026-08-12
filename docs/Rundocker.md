@@ -8,11 +8,6 @@ docker build -t pc-support-backend:dev .
 docker ps -a
 
 ```
-### Remove image 
-
-```
-docker rm pc-support-backend
-```
 
 ```
 docker run \
@@ -23,11 +18,30 @@ docker run \
   pc-support-backend:dev
 ```
 
+## Docker build and run frontend
+
+```
+docker run \
+  --name pc-support-frontend \
+  -p 3000:80 \
+  pc-support-frontend:dev
+
+ ```
+
+### Remove image 
+
+```
+docker rm pc-support-backend
+```
+
+
+
 ### Expected error
 
-* 2026/08/11 05:42:29 DB Error: mongo ping failed: server selection error: context deadline exceeded, current topology: { Type: Unknown, Servers: [{ Addr: host.docker.internal:27017, Type: Unknown, Last error: dial tcp 172.17.0.1:27017: connect: connection refused }, ] } *
+` 2026/xx/xx xx:xx:29 DB Error: mongo ping failed: server selection error: context deadline exceeded, current topology: { Type: Unknown, Servers: [{ Addr: host.docker.internal:27017, Type: Unknown, Last error: dial tcp 172.17.0.1:27017: connect: connection refused }, ] } `
 
-  ### Check existing Mongo config
+### Check existing Mongo config
+
   ```
   sudo mongosh --eval 'db.adminCommand({getCmdLineOpts: 1})'
   ```
@@ -36,7 +50,7 @@ docker run \
   
   ```
 
-### Edit mongocofig file
+### Edit mongoconfig file
 
   ```
   sudo nano /etc/mongod.conf
@@ -50,9 +64,9 @@ docker run \
 
   ```
 
-  ### Expected result -
+### Expected result -
 
-  {
+  `{
   argv: [ '/usr/bin/mongod', '--config', '/etc/mongod.conf' ],
   parsed: {
     config: '/etc/mongod.conf',
@@ -66,7 +80,7 @@ docker run \
     }
   },
   ok: 1
-}
+}`
 
 ## Check inside Image
 
