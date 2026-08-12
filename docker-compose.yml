@@ -1,0 +1,32 @@
+services:
+  mongo:
+    image: mongo:8.0
+    container_name: pc-support-mongo
+    volumes:
+      - pc-support-mongo-data:/data/db
+
+  backend:
+    build:
+      context: ./backend/pc-support-system
+      dockerfile: Dockerfile
+    container_name: pc-support-backend
+    env_file:
+      - ./backend/pc-support-system/.env
+    ports:
+      - "6543:6543"
+    depends_on:
+      - mongo
+
+  frontend:
+    build:
+      context: ./frontend/pc-support-system-app
+      dockerfile: Dockerfile
+    container_name: pc-support-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  pc-support-mongo-data:
+    external: true
