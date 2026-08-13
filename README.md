@@ -30,13 +30,58 @@ JWT_EXPIRY_HOURS=24
 
 GIN_MODE=release
 
-ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
+ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173,http://<host-or-vm-ip>:3000
 
 ```
 
+## ALLOWED_ORIGINS
+
+`
+Set this to the origin(s) from which the frontend will be accessed.
+
+For local access:
+
+http://localhost:3000
+
+For LAN/Vagrant access:
+
+http://<host-or-vm-ip>:3000
+
+For production:
+
+https://<your-domain>
+`
 
 
-### Initial System Setup
+## Docker compose 
+
+```
+docker compose up -d --build
+```
+```
+docker compose ps
+```
+```
+docker compose down
+```
+## If required 
+
+```
+docker compose up -d --force-recreate frontend
+```
+```
+docker compose up -d --force-recreate backend
+```
+```
+docker compose logs -f
+```
+
+
+##### Don't run. This will delete the attached data volume
+
+docker compose down -v
+
+## Initial System Setup
 
 1. Open http://localhost:3000/
 2. Register account with email and password. That account will be registered as customer.
