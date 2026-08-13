@@ -94,6 +94,11 @@ docker exec -it pc-support-mongo mongosh
 ```
 
 ```
+show dbs
+
+```
+
+```
 use <dbname mentioned in env file>
 
 ```

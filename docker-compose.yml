@@ -6,9 +6,10 @@ services:
       - pc-support-mongo-data:/data/db
 
   backend:
-    build:
-      context: ./backend/pc-support-system
-      dockerfile: Dockerfile
+    # build:
+    #   context: ./backend/pc-support-system
+    #   dockerfile: Dockerfile
+    image: boseabhimanyu/pc-support-backend:1.0.0
     container_name: pc-support-backend
     env_file:
       - ./backend/pc-support-system/.env
@@ -18,9 +19,10 @@ services:
       - mongo
 
   frontend:
-    build:
-      context: ./frontend/pc-support-system-app
-      dockerfile: Dockerfile
+    # build:
+    #   context: ./frontend/pc-support-system-app
+    #   dockerfile: Dockerfile
+    image: boseabhimanyu/pc-support-frontend:1.0.0
     container_name: pc-support-frontend
     ports:
       - "3000:80"
